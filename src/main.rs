@@ -49,8 +49,8 @@ fn main() -> Result<(), ImageErrors> {
     let (image_2, image_format_2) = find_image_from_path(args.image_2)?;
 
     match image_format_1 == image_format_2 {
-        true => Err(ImageErrors::DifferentImageFormats),
-        false => {
+        false => Err(ImageErrors::DifferentImageFormats),
+        true => {
             let (image_1, image_2) = standardise_size(image_1, image_2);
             let mut output = FloatingImage::new(image_1.width(), image_1.height(), args.output);
 
@@ -77,11 +77,20 @@ fn main() -> Result<(), ImageErrors> {
 
 fn find_image_from_path(path: String) -> Result<(DynamicImage, ImageFormat), ImageErrors> {
 
-    let image_reader: Reader<BufReader<File>> = Reader::open(path.clone()).unwrap();
-    let image_format: ImageFormat = image_reader.format().unwrap();
-    let image: DynamicImage = image_reader.decode().unwrap();
+    match Reader::open(path.clone()) {
+        Err(_) => Err(ImageErrors::UnableToReadFile(path.clone())),
+        Ok(image_reader) => {
 
-    Ok((image, image_format))
+            if let Some(image_format) = image_reader.format() {
+                match image_reader.decode() {
+                    Ok(image) => Ok((image, image_format)),
+                    Err(_) => Err(ImageErrors::UnableToDecodeImage(path))
+                }
+            } else {
+                Err(ImageErrors::UnableToReadFormat)
+            }
+        }
+    }
 }
 
 fn get_smallest_dimension(dim_1: (u32, u32), dim_2: (u32, u32)) -> (u32, u32) {
